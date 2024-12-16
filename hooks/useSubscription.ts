@@ -1,7 +1,7 @@
 import * as React from 'react'
 import { server } from '../shared/contracts'
-import * as SorobanClient from 'soroban-client'
-let xdr = SorobanClient.xdr
+import { xdr } from "@stellar/stellar-sdk";
+
 
 /**
  * Concatenated `${contractId}:${topic}`

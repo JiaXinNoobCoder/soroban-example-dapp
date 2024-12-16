@@ -1,3 +1,5 @@
+import { scValToNative, xdr } from "@stellar/stellar-sdk";
+
 import React, { FunctionComponent, useState } from 'react'
 import { Card, ConnectButton, Loading, ProgressBar } from '../../atoms'
 import styles from './style.module.css'
@@ -12,9 +14,9 @@ import {
   abundance as abundanceContract,
 } from '../../../shared/contracts'
 
-import * as SorobanClient from 'soroban-client'
+
 import { Deposits, FormPledge } from '../../molecules'
-let xdr = SorobanClient.xdr
+
 
 const Pledge: FunctionComponent = () => {
   const [updatedAt, setUpdatedAt] = React.useState<number>(Date.now())
@@ -63,7 +65,7 @@ const Pledge: FunctionComponent = () => {
     'pledged_amount_changed',
     React.useMemo(() => event => {
       let eventTokenBalance = xdr.ScVal.fromXDR(event.value.xdr, 'base64')
-      setAbundance({ ...abundance!, balance: SorobanClient.scValToNative(eventTokenBalance) })
+      setAbundance({ ...abundance!, balance: scValToNative(eventTokenBalance) })
     }, [abundance])
   )
 

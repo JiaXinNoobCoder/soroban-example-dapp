@@ -1,0 +1,29 @@
+CrowdingFund
+High Level Architecture
+
+Entity
+1. Grant Registry
+2. Checkout 
+Checkout is the process by which visitors to Gitcoin Grants contribute funds to a grants on-chain address. The existing implementation provides this via a BulkCheckout contract.
+3. Rounds
+4. Matching Pool
+5. Matching Function
+5. User Data Store
+
+WiseInvestor Story version 1
+Product Name: WiseInvestor, a plateform for crowdfunding and grants
+1.WiseInvestor community creats a grant round with a set of qualifying grants . 创建众筹轮
+2.WiseInvestor community raises matching funds for the round. 拨款
+3.Put matching funds to a round associated funds pool. 放进池子
+4.Start the round
+5.Crowdfunding Period, contributors donor to projects they is intrested(contributions), and WiseInvestor can see how the funds are distributed to grantees through matching function
+6.End the round
+7.pledge met then distributed the matching funds and contributions to grantees, otherwise, refund contributors. 
+
+
+Resources Limits Show Case Design
+Design a crowfund register.
+1.creat  a list of crowdfunds.
+2.pledge to a list of crowdfunds.
+3.withdraw from a list of crowdfunds.
+4.query crowfund by criticas
