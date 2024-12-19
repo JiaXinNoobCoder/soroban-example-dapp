@@ -5,7 +5,13 @@ use super::testutils::{register_test_contract as register_crowdfund_registry, Cr
 use super::storage_types::DataKey;
 use super::entity::*;
 use soroban_sdk::testutils::Events;
-use soroban_sdk::{ token, IntoVal, vec, Env, Map, testutils::Address as TestAddress, Address, Vec, Val, Symbol };
+use soroban_sdk::{ token, IntoVal, vec, Env, Map, testutils::{ Address as TestAddress, Ledger }, Address, Vec, Val, Symbol };
+
+fn advance_ledger(e: &Env, delta: u64) {
+    e.ledger().with_mut(|l| {
+        l.timestamp += delta;
+    });
+}
 
 fn create_crowdfund_registry_contract(e: &Env) -> (Address, CrowdfundRegistryContract) {
     let contract_id = register_crowdfund_registry(e);
@@ -24,62 +30,65 @@ fn create_token_contract<'a>(
     )
 }
 
-fn generate_batch_withdraw(env: &Env) -> Vec<Withdraw> {
+fn generate_batch_withdraw(env: &Env, drawer: &Vec<Address>) -> Vec<Withdraw> {
     vec![env,
         Withdraw {
-            drawer: Address::generate(env),
+            drawer: drawer.get(0).unwrap(),
             crowdfund_id: 1,
             
         },
         Withdraw {
-            drawer: Address::generate(env),
+            drawer: drawer.get(1).unwrap(),
             crowdfund_id: 2,
         },
         Withdraw {
-            drawer: Address::generate(env),
+            drawer: drawer.get(2).unwrap(),
             crowdfund_id: 3,
         },
     ]
 }
 
-fn generate_batch_pledge(env: &Env) -> Vec<Pledge> {
+fn generate_batch_pledge(env: &Env, donors: &Vec<Address>, 
+    donations: &Vec<i128>) -> Vec<Pledge> {
     vec![env,
         Pledge {
-            donor: Address::generate(env),
+            donor: donors.get(0).unwrap().clone(),
             crowdfund_id: 1,
-            amount: 50,
+            amount: donations.get(0).unwrap(),
         },
         Pledge {
-            donor: Address::generate(env),
+            donor: donors.get(1).unwrap().clone(),
             crowdfund_id: 2,
-            amount: 100,
+            amount: donations.get(1).unwrap(),
         },
         Pledge {
-            donor: Address::generate(env),
+            donor: donors.get(2).unwrap().clone(),
             crowdfund_id: 3,
-            amount: 200,
+            amount: donations.get(2).unwrap(),
         },
     ]
 }
 
-fn generate_crowdfund_args_list(env: &Env, token_address: &Address) -> Vec<CrowdfundArgs> {
+fn generate_crowdfund_args_list(env: &Env, recipients: &Vec<Address>, targets: &Vec<i128>, 
+    token_address: &Address) -> Vec<CrowdfundArgs> {
+
     vec![env,
         CrowdfundArgs {
-            recipient: Address::generate(env),
+            recipient: recipients.get(0).unwrap().clone(),
             deadline: env.ledger().timestamp() + 10,
-            target_amount: 20,
+            target_amount: targets.get(0).unwrap(),
             token: token_address.clone(),
         },
         CrowdfundArgs {
-            recipient: Address::generate(env),
+            recipient: recipients.get(1).unwrap().clone(),
             deadline: env.ledger().timestamp() + 10,
-            target_amount: 10000,
+            target_amount: targets.get(1).unwrap(),
             token: token_address.clone(),
         },
         CrowdfundArgs {
-            recipient: Address::generate(env),
+            recipient: recipients.get(2).unwrap().clone(),
             deadline: env.ledger().timestamp() + 10,
-            target_amount: 15000,
+            target_amount: targets.get(2).unwrap(),
             token: token_address.clone(),
         },
     ]
@@ -107,15 +116,15 @@ fn get_map(env: &Env, contract_id: &Address) -> Map<u64, Address> {
     
 }
 
+
 struct Setup<'a> {
     env: Env,
     registry_admin: Address,
+    donors: Vec<Address>,
+    recipients: Vec<Address>,
     crowdfund_registry: CrowdfundRegistryContract,
     crowdfund_registry_id: Address,
     token: token::Client<'a>,
-    crowdfund_args_list: Vec<CrowdfundArgs>,
-    batch_pledge: Vec<Pledge>,
-    batch_withdraw: Vec<Withdraw>,
 }
 
 impl Setup<'_> {
@@ -127,24 +136,23 @@ impl Setup<'_> {
                 // Create the token contract
         let token_admin = Address::generate(&env);
         let (token, token_admin) = create_token_contract(&env, &token_admin);
-        let crowdfund_args_list = generate_crowdfund_args_list(&env, &token.address);
-        let batch_pledge = generate_batch_pledge(&env);
-        let batch_withdraw = generate_batch_withdraw(&env);
+        let donors = vec![&env, Address::generate(&env), Address::generate(&env), Address::generate(&env)];
+        let recipients = vec![&env, Address::generate(&env), Address::generate(&env), Address::generate(&env)];
+
 
         // Mint some tokens to work with
-        for pledge in batch_pledge.iter() {
-            token_admin.mock_all_auths().mint(&pledge.donor, &1000);
+        for donor in donors.iter() {
+            token_admin.mock_all_auths().mint(&donor, &1000);
         }
 
         Self {
             env,
             registry_admin,
+            donors,
+            recipients,
             crowdfund_registry,
             crowdfund_registry_id,
             token,
-            crowdfund_args_list,
-            batch_pledge,
-            batch_withdraw,
         }
     }
 }
@@ -201,11 +209,16 @@ fn test_creat_batch_crowdfunds() {
         .crowdfund_registry
         .client()
         .initialize(&setup.registry_admin);
+
+    let targets = vec![&env, 100, 200, 300];
+
+    let crowdfund_args_list = generate_crowdfund_args_list(env, &setup.recipients, 
+        &targets, &setup.token.address);
     let counter= setup
       .crowdfund_registry
       .client()
       .mock_all_auths()
-      .creat_batch_crowdfunds(&setup.crowdfund_args_list);
+      .creat_batch_crowdfunds(&crowdfund_args_list);
 
     assert_eq!(counter, get_counter(env, &setup.crowdfund_registry_id));
 
@@ -214,53 +227,145 @@ fn test_creat_batch_crowdfunds() {
 #[test]
 fn test_deposit_to_batch_crowdfunds() {
     let setup = Setup::new();
+    let env = &setup.env;
     setup
         .crowdfund_registry
         .client()
         .initialize(&setup.registry_admin);
 
+    let targets = vec![&env, 100, 200, 300];
+    let crowdfund_args_list = generate_crowdfund_args_list(env, &setup.recipients, 
+            &targets,&setup.token.address);
+
     setup
       .crowdfund_registry
       .client()
       .mock_all_auths()
-      .creat_batch_crowdfunds(&setup.crowdfund_args_list);
+      .creat_batch_crowdfunds(&crowdfund_args_list);
+    let donations = vec![&env, 100, 200, 300];
+    let batch_pledge = generate_batch_pledge(env, &setup.donors, &donations); 
 
     setup
         .crowdfund_registry
         .client()
         .mock_all_auths()
-        .deposit_to_batch_crowdfunds(&setup.batch_pledge);
+        .deposit_to_batch_crowdfunds(&batch_pledge);
+
+    let crowdfund_map= get_map(env, &setup.crowdfund_registry_id);
+    let crowdfund1 = crowdfund_map.get(1).unwrap();
+    let crowdfund2 = crowdfund_map.get(2).unwrap();
+    let crowdfund3 = crowdfund_map.get(3).unwrap();
+
+    assert_eq!(batch_pledge.get(0).unwrap().amount, 
+    setup.token.balance(&crowdfund1));
+
+    assert_eq!(batch_pledge.get(1).unwrap().amount, 
+    setup.token.balance(&crowdfund2));
+
+    assert_eq!(batch_pledge.get(2).unwrap().amount, 
+    setup.token.balance(&crowdfund3));
+
+    assert_eq!(900, 
+    setup.token.balance(&setup.donors.get(0).unwrap()));
+
+    assert_eq!(800, 
+    setup.token.balance(&setup.donors.get(1).unwrap()));
+
+    assert_eq!(700, 
+    setup.token.balance(&setup.donors.get(2).unwrap()));
 
 }
 
 #[test]
-#[should_panic(expected = "sale is still running")]
-fn test_withdraw_from_batch_crowdfunds() {
+fn test_withdraw_from_batch_crowdfunds_target_hitted() {
     let setup = Setup::new();
+    let env = &setup.env;
+    setup
+        .crowdfund_registry
+        .client()
+        .initialize(&setup.registry_admin);
+    let targets = vec![&env, 100, 200, 300];
+    let crowdfund_args_list = generate_crowdfund_args_list(env, &setup.recipients, 
+            &targets,&setup.token.address);
+
+    
+    let donations = vec![&env, 100, 200, 300];
+    let batch_pledge = generate_batch_pledge(env, &setup.donors, &donations); 
+
+    let batch_withdraw = generate_batch_withdraw(env, &setup.recipients);
+
+    setup
+      .crowdfund_registry
+      .client()
+      .mock_all_auths()
+      .creat_batch_crowdfunds(&crowdfund_args_list);
+
+    setup
+      .crowdfund_registry
+      .client()
+      .mock_all_auths()
+      .deposit_to_batch_crowdfunds(&batch_pledge);
+
+    advance_ledger(env, 15);
+
+    setup
+      .crowdfund_registry
+      .client()
+      .mock_all_auths()
+      .withdraw_from_batch_crowdfunds(&batch_withdraw);
+
+    assert_eq!(100, setup.token.balance(&setup.recipients.get(0).unwrap()));
+    assert_eq!(200, setup.token.balance(&setup.recipients.get(1).unwrap()));
+    assert_eq!(300, setup.token.balance(&setup.recipients.get(2).unwrap()));
+
+}
+
+
+#[test]
+fn test_withdraw_from_batch_crowdfunds_expire() {
+    let setup = Setup::new();
+    let env = &setup.env;
     setup
         .crowdfund_registry
         .client()
         .initialize(&setup.registry_admin);
 
-    setup
-      .crowdfund_registry
-      .client()
-      .mock_all_auths()
-      .creat_batch_crowdfunds(&setup.crowdfund_args_list);
+    let targets = vec![&env, 100, 300, 300];
+    let crowdfund_args_list = generate_crowdfund_args_list(env, &setup.recipients, 
+            &targets,&setup.token.address);
+    
+    let donations = vec![&env, 50, 50, 50];
+    let batch_pledge = generate_batch_pledge(env, &setup.donors, &donations); 
+    let batch_withdraw = generate_batch_withdraw(env, &setup.donors);
 
     setup
       .crowdfund_registry
       .client()
       .mock_all_auths()
-      .deposit_to_batch_crowdfunds(&setup.batch_pledge);
+      .creat_batch_crowdfunds(&crowdfund_args_list);
 
     setup
       .crowdfund_registry
       .client()
       .mock_all_auths()
-      .withdraw_from_batch_crowdfunds(&setup.batch_withdraw);
+      .deposit_to_batch_crowdfunds(&batch_pledge);
+
+    assert_eq!(950, setup.token.balance(&setup.donors.get(0).unwrap()));
+    assert_eq!(950, setup.token.balance(&setup.donors.get(1).unwrap()));
+    assert_eq!(950, setup.token.balance(&setup.donors.get(2).unwrap()));
+
+    advance_ledger(env, 15);
+    
+    setup
+      .crowdfund_registry
+      .client()
+      .mock_all_auths()
+      .withdraw_from_batch_crowdfunds(&batch_withdraw);
+
+    assert_eq!(1000, setup.token.balance(&setup.donors.get(0).unwrap()));
+    assert_eq!(1000, setup.token.balance(&setup.donors.get(1).unwrap()));
+    assert_eq!(1000, setup.token.balance(&setup.donors.get(2).unwrap()));
 
 }
-
 
 
