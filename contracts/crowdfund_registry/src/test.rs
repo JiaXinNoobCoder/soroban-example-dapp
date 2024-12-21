@@ -214,13 +214,13 @@ fn test_creat_batch_crowdfunds() {
 
     let crowdfund_args_list = generate_crowdfund_args_list(env, &setup.recipients, 
         &targets, &setup.token.address);
-    let counter= setup
+    let ids= setup
       .crowdfund_registry
       .client()
       .mock_all_auths()
       .creat_batch_crowdfunds(&crowdfund_args_list);
 
-    assert_eq!(counter, get_counter(env, &setup.crowdfund_registry_id));
+    assert_eq!(vec![env, 1, 2, 3], ids);
 
 }
 

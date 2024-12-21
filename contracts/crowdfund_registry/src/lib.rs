@@ -65,16 +65,17 @@ impl CrowdfundRegistryContract {
 
 
     
-    pub fn creat_batch_crowdfunds(env: Env, crowdfund_args_list: Vec<CrowdfundArgs>) -> u64 {
+    pub fn creat_batch_crowdfunds(env: Env, crowdfund_args_list: Vec<CrowdfundArgs>) -> Vec<u64> {
         let admin= get_admin(&env);
         admin.require_auth();
+        let mut ids= Vec::<u64>::new(&env);
         for crowdfund_args in crowdfund_args_list.iter() {
             let crowdfund_id = creat_crowdfund(&env, &crowdfund_args);
+            ids.push_back(crowdfund_id);
             creat_crowdfund_event(&env, crowdfund_id, crowdfund_args.recipient.clone(), 
                 crowdfund_args.deadline.clone(), crowdfund_args.target_amount.clone(), crowdfund_args.token.clone());
         }
-        let counter= get_count(&env);
-        counter
+        ids
     }
 
     pub fn deposit_to_batch_crowdfunds(env: Env, batch_pledge: Vec<Pledge>) {
