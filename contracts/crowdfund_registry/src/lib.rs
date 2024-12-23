@@ -25,6 +25,15 @@ fn set_count(env: &Env, counter: u64) {
     env.storage().instance().set(&DataKey::Counter, &counter);
 }
 
+fn get_map(env: &Env) -> Map<u64, Address> {
+    env.storage().instance().get::<_, Map<u64, Address>>(&DataKey::CrowdfundMap).unwrap()
+}
+
+fn set_map(env: &Env, crowdfunds_map: Map<u64, Address>) {
+    env.storage().instance().set(&DataKey::CrowdfundMap, &crowdfunds_map);
+    
+}
+
 fn set_crowdfund_to_map(env: &Env, crowdfund_id: u64, crowdfund_address: Address) {
     let mut crowdfund_map = env.storage().instance().get::<_, Map<u64, Address>>(&DataKey::CrowdfundMap).unwrap();
     crowdfund_map.set(crowdfund_id, crowdfund_address);
@@ -48,6 +57,16 @@ fn creat_crowdfund(env: &Env, crowdfund_args: &CrowdfundArgs) -> u64 {
     set_crowdfund_to_map(env, counter, deployed_address);
     set_count(&env, counter);
     counter
+}
+
+fn creat_crowdfund_v2(env: &Env, wasm_hash: &BytesN<32>, crowdfund_args: CrowdfundArgs) -> Address {
+    let salt = BytesN::from_array(&env, &[0; 32]);
+    let deployer = crowdfund_args.recipient.clone();
+    let init_args: Vec<Val> = (crowdfund_args.recipient, crowdfund_args.deadline, 
+    crowdfund_args.target_amount, crowdfund_args.token).into_val(env);
+    let crowdfund_address = crowdfund_client::deploy_v2(&env, deployer, 
+    wasm_hash.clone(), salt, init_args); 
+    crowdfund_address
 }
 
 #[contract]
@@ -75,6 +94,28 @@ impl CrowdfundRegistryContract {
             creat_crowdfund_event(&env, crowdfund_id, crowdfund_args.recipient.clone(), 
                 crowdfund_args.deadline.clone(), crowdfund_args.target_amount.clone(), crowdfund_args.token.clone());
         }
+        ids
+    }
+
+    pub fn creat_batch_crowdfunds_v2(env: Env, wasm_hash: BytesN<32>, crowdfund_args_list: Vec<CrowdfundArgs>) -> Vec<u64> {
+        let admin= get_admin(&env);
+        admin.require_auth();
+        let mut counter = get_count(&env); 
+        let mut crowdfunds_map = get_map(&env);
+        let mut ids: Vec<u64>= Vec::<u64>::new(&env);
+        for crowdfund_arg in crowdfund_args_list.iter() { // todo how the crowdfund_args value be moved?
+            let crowdfund_address = creat_crowdfund_v2(&env, &wasm_hash, crowdfund_arg);
+            counter += 1;
+            crowdfunds_map.set(counter, crowdfund_address);
+            ids.push_back(counter);
+        }
+
+        // update the counter and the crowdfund map just once
+        set_count(&env, counter);
+        set_map(&env, crowdfunds_map);
+
+        // just issu event once with all the crowdfunds created
+        creat_crowdfund_event_v2(&env, crowdfund_args_list);
         ids
     }
 

@@ -1,7 +1,13 @@
 #![cfg(test)]
+// The contract that will be deployed by the deployer contract.
+mod crowdfund_contract {
+    soroban_sdk::contractimport!(
+        file = "../../target/wasm32-unknown-unknown/release/soroban_crowdfund_contract.wasm"
+    );
+}
 
 extern crate std;
-use super::testutils::{register_test_contract as register_crowdfund_registry, CrowdfundRegistryContract};
+use super::testutils::{register_test_contract as register_crowdfund_registry, capture_stdout, CrowdfundRegistryContract};
 use super::storage_types::DataKey;
 use super::entity::*;
 use soroban_sdk::testutils::Events;
@@ -202,7 +208,7 @@ fn test_initialize() {
 }
 
 #[test]
-fn test_creat_batch_crowdfunds() {
+fn test_creat_batch_crowdfunds_v1() {
     let setup = Setup::new();
     let env = &setup.env;
     setup
@@ -219,6 +225,40 @@ fn test_creat_batch_crowdfunds() {
       .client()
       .mock_all_auths()
       .creat_batch_crowdfunds(&crowdfund_args_list);
+    capture_stdout(|| {
+        env.budget().print();
+    }, "creat_batch_crowdfunds.txt").expect("Failed to capture stdout");
+    assert_eq!(vec![env, 1, 2, 3], ids);
+
+}
+
+#[test]
+fn test_creat_batch_crowdfunds_v2() {
+    let setup = Setup::new();
+    let env = &setup.env;
+    setup
+        .crowdfund_registry
+        .client()
+        .initialize(&setup.registry_admin);
+
+    let targets = vec![&env, 100, 200, 300];
+
+    let crowdfund_args_list = generate_crowdfund_args_list(env, &setup.recipients, 
+        &targets, &setup.token.address);
+
+    // Upload the Wasm to be deployed from the deployer contract.
+    // This can also be called from within a contract if needed.
+    let wasm_hash = env.deployer().upload_contract_wasm(crowdfund_contract::WASM);
+
+    let ids= setup
+      .crowdfund_registry
+      .client()
+      .mock_all_auths()
+      .creat_batch_crowdfunds_v2(&wasm_hash, &crowdfund_args_list);
+    
+    capture_stdout(|| {
+        env.budget().print();
+    }, "creat_batch_crowdfunds_v2.txt").expect("Failed to capture stdout");    
 
     assert_eq!(vec![env, 1, 2, 3], ids);
 
