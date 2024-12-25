@@ -28,7 +28,8 @@
     "react": "^18.2.0",
     "react-dom": "^18.2.0",
     "@stellar/stellar-sdk": "^13.0.0",
-    "@stellar/freighter-api": "3.0.0"
+    "@stellar/freighter-api": "3.0.0",
+    "crowdfund_registry": "file:./.soroban-example-dapp/crowdfund-registry"
   },
   "devDependencies": {
     "@types/humanize-duration": "^3.27.1",

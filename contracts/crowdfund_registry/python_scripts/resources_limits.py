@@ -1,8 +1,8 @@
 import pandas as pd
 
 # Specify the file paths
-v1_path = '/home/jiaxin/projects/stellar/dapp_crowdfunding/soroban-example-dapp/contracts/crowdfund_registry/creat_batch_crowdfunds.txt'
-v2_path = '/home/jiaxin/projects/stellar/dapp_crowdfunding/soroban-example-dapp/contracts/crowdfund_registry/creat_batch_crowdfunds_v2.txt'
+v1_path = '/home/jiaxin/projects/crowdfunding/soroban-example-dapp/contracts/crowdfund_registry/creat_batch_crowdfunds.txt'
+v2_path = '/home/jiaxin/projects/crowdfunding/soroban-example-dapp/contracts/crowdfund_registry/creat_batch_crowdfunds_v2.txt'
 
 # Read the .txt files, specifying that the header is on the 3rd line (index 2) and using whitespace as the delimiter
 df_v1 = pd.read_csv(v1_path, skiprows=2, delim_whitespace=True)

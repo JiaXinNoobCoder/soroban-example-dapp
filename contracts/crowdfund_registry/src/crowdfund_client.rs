@@ -1,4 +1,4 @@
-use soroban_sdk::{ symbol_short, IntoVal, Address, BytesN, Env, Symbol, Val, Vec };
+use soroban_sdk::{symbol_short, Address, BytesN, Env, IntoVal, Symbol, Val, Vec};
 
 // The contract that will be deployed by the deployer contract.
 mod contract {
@@ -16,10 +16,9 @@ pub fn deposit(env: &Env, crowdfund_address: Address, donor: Address, amount: i1
         donor.require_auth();
     }
 
-    let args= (donor, amount).into_val(env);
+    let args = (donor, amount).into_val(env);
     // Invoke the deposit function on the crowdfund contract.
     let _: Val = env.invoke_contract(&crowdfund_address, &DEPOSIT, args);
-
 }
 
 pub fn withdraw(env: &Env, crowdfund_address: Address, drawer: Address) {
@@ -27,12 +26,11 @@ pub fn withdraw(env: &Env, crowdfund_address: Address, drawer: Address) {
     if drawer != env.current_contract_address() {
         drawer.require_auth();
     }
-    let args: Vec<Val>= (drawer,).into_val(env);
+    let args: Vec<Val> = (drawer,).into_val(env);
 
     // Invoke the deposit function on the crowdfund contract.
     let _: Val = env.invoke_contract(&crowdfund_address, &WITHDRAW, args);
 }
-
 
 pub fn deploy(
     env: &Env,
@@ -41,15 +39,16 @@ pub fn deploy(
     init_fn: Symbol,
     init_args: Vec<Val>,
 ) -> Address {
-
     // Skip authorization if deployer is the current contract.
     if deployer != env.current_contract_address() {
         deployer.require_auth();
     }
 
     let wasm_hash = env.deployer().upload_contract_wasm(contract::WASM);
-    
-    let deployed_address = env.deployer().with_address(deployer, salt)
+
+    let deployed_address = env
+        .deployer()
+        .with_address(deployer, salt)
         .deploy(wasm_hash);
 
     // Invoke the init function with the given arguments.
@@ -66,18 +65,22 @@ pub fn deploy_v2(
     salt: BytesN<32>,
     init_args: Vec<Val>,
 ) -> Address {
-
     // Skip authorization if deployer is the current contract.
     if deployer != env.current_contract_address() {
         deployer.require_auth();
     }
 
-    
-    let deployed_address = env.deployer().with_address(deployer, salt)
+    let deployed_address = env
+        .deployer()
+        .with_address(deployer, salt)
         .deploy(wasm_hash);
 
     // Invoke the init function with the given arguments.
-    let _: Val = env.invoke_contract(&deployed_address, &Symbol::new(env, "initialize"), init_args);
+    let _: Val = env.invoke_contract(
+        &deployed_address,
+        &Symbol::new(env, "initialize"),
+        init_args,
+    );
     // Return the contract ID of the deployed contract and the result of
     // invoking the init result.
     deployed_address

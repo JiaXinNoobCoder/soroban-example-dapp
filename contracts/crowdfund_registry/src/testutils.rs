@@ -5,7 +5,6 @@ use crate::CrowdfundRegistryContractClient;
 
 use soroban_sdk::{Address, Env};
 
-
 use std::fs::File;
 use std::io::{self};
 use std::os::unix::io::AsRawFd;

@@ -94,6 +94,14 @@ CROWDFUND_ID="$(
 echo "Contract deployed succesfully with ID: $CROWDFUND_ID"
 echo "$CROWDFUND_ID" > .soroban-example-dapp/crowdfund_id
 
+echo Deploy the crowdfund_registry contract
+CROWDFUND_REGISTRY_ID="$(
+  stellar contract deploy $ARGS \
+    --wasm target/wasm32-unknown-unknown/release/crowdfund_registry.wasm
+)"
+echo "Contract deployed succesfully with ID: $CROWDFUND_REGISTRY_ID"
+echo "$CROWDFUND_REGISTRY_ID" > .soroban-example-dapp/crowdfund_registry_id
+
 echo "Initialize the abundance token contract"
 stellar contract invoke \
   $ARGS \
@@ -116,4 +124,12 @@ stellar contract invoke \
   --deadline "$deadline" \
   --target_amount "1000000000" \
   --token "$ABUNDANCE_ID"
+
+echo "Initialize the crowdfund_registry contract"
+stellar contract invoke \
+  $ARGS \
+  --id "$CROWDFUND_REGISTRY_ID" \
+  -- \
+  initialize \
+  --admin "$ABUNDANCE_ADMIN_ADDRESS"
 echo "Done"
